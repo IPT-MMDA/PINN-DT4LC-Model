@@ -1,5 +1,5 @@
+import os
 import gradio as gr
-
 from data.loaders import generate_synthetic_data, load_swiss_radar_data
 from evaluation.metrics import compute_metrics, print_comparison
 from evaluation.visualization import create_loss_plot, create_prediction_visualization
@@ -13,12 +13,16 @@ from training.trainers import (
     train_traditional_linda_with_params,
 )
 
+# Fix macOS segfault
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 
 def create_gradio_app():
     with gr.Blocks(title="LINDA vs LINDA-PINN Comparison") as app:
         gr.Markdown("""
         # LINDA vs LINDA-PINN Weather Nowcasting Comparison
-        
+
         Compare traditional LINDA with Physics-Informed Neural Network (PINN) approach for precipitation nowcasting.
         Adjust hyperparameters for both models and see how they perform!
         """)
@@ -57,7 +61,11 @@ def create_gradio_app():
                 pinn_growth = gr.Slider(0.01, 0.5, value=0.1, step=0.01, label="Initial Growth Rate")
 
         with gr.Row():
-            use_synthetic = gr.Checkbox(value=True, label="Use Synthetic Data (faster)")
+            dataset_choice = gr.Dropdown(
+                choices=["synthetic", "swiss", "mrms", "danish", "german"],
+                value="synthetic",
+                label="Select Dataset"
+            )
             run_btn = gr.Button("Run Comparison", variant="primary")
 
         with gr.Row():
@@ -90,7 +98,7 @@ def create_gradio_app():
                 pinn_sigma,
                 pinn_survival,
                 pinn_growth,
-                use_synthetic,
+                dataset_choice,
             ],
             outputs=[results_output, predictions_plot, loss_plot],
         )

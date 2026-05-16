@@ -763,19 +763,16 @@ def run_comparison(
     pinn_initial_survival,
     pinn_initial_growth,
     # Data selection
-    use_synthetic_data,
+    dataset_name,
 ):
     """Main function to run the comparison"""
 
     # Load data
-    if use_synthetic_data:
+    if dataset_name == "synthetic":
         rainrate_sequence, metadata = generate_synthetic_data()
     else:
-        try:
-            rainrate_sequence, metadata = load_swiss_radar_data()
-        except:
-            print("Failed to load real data, using synthetic instead")
-            rainrate_sequence, metadata = generate_synthetic_data()
+        from data.loaders import load_dataset
+        rainrate_sequence, metadata = load_dataset(dataset_name)
 
     # Train LINDA
     linda_results = train_traditional_linda_with_params(
@@ -820,7 +817,7 @@ def run_comparison(
     # Format results
     results_text = f"""
     ## Model Comparison Results
-    
+
     ### Traditional LINDA
     - **Input Frames**: {linda_results.get("n_input", "N/A")}
     - **Forecast Frames**: {linda_results.get("n_forecast", "N/A")}
@@ -828,7 +825,7 @@ def run_comparison(
     - **MAE**: {linda_metrics["mae"]:.4f}
     - **Correlation**: {linda_metrics["correlation"]:.4f}
     - **Accuracy (±20%)**: {linda_metrics["accuracy"]:.2f}%
-    
+
     ### LINDA-PINN
     - **Input Frames**: {pinn_results.get("n_input", "N/A")}
     - **Forecast Frames**: {pinn_results.get("n_forecast", "N/A")}
@@ -837,12 +834,12 @@ def run_comparison(
     - **Correlation**: {pinn_metrics["correlation"]:.4f}
     - **Accuracy (±20%)**: {pinn_metrics["accuracy"]:.2f}%
     - **Training Time**: {pinn_results.get("training_time", 0):.2f}s
-    
+
     ### Learned PINN Parameters
     - **Sigma**: {pinn_results.get("final_params", {}).get("sigma", "N/A"):.3f}
     - **Survival**: {pinn_results.get("final_params", {}).get("survival", "N/A"):.3f}
     - **Growth**: {pinn_results.get("final_params", {}).get("growth", "N/A"):.3f}
-    
+
     ### Winner
     - **RMSE**: {"LINDA" if linda_metrics["rmse"] < pinn_metrics["rmse"] else "PINN" if pinn_metrics["rmse"] < linda_metrics["rmse"] else "Tie"}
     - **Accuracy**: {"LINDA" if linda_metrics["accuracy"] > pinn_metrics["accuracy"] else "PINN" if pinn_metrics["accuracy"] > linda_metrics["accuracy"] else "Tie"}

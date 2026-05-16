@@ -82,3 +82,40 @@ def generate_synthetic_data():
 
     print(f"Generated synthetic data shape: {rainrate_sequence.shape}")
     return rainrate_sequence, metadata
+
+
+def load_dataset(dataset_name="swiss"):
+    """Load different radar datasets from pysteps"""
+
+    datasets_config = {
+        "swiss": {"root": "mchrzc12", "date": "201609080000", "end": "201609081200"},
+        "mrms": {"root": "mrms", "date": "201906100000", "end": "201906101200"},
+        "danish": {"root": "danish", "date": "201606010000", "end": "201606011200"},
+        "german": {"root": "german", "date": "201608120000", "end": "201608121200"},
+    }
+
+    try:
+        config = datasets_config[dataset_name]
+
+        root_path = pysteps.datasets.download_pysteps_data()
+
+        fns = pysteps.datasets.create_file_list(
+            root_path,
+            config["root"],
+            config["date"],
+            config.get("end", config["date"]),
+            timestep=5
+        )
+
+        if len(fns) == 0:
+            raise FileNotFoundError(f"No files found for dataset {dataset_name}")
+
+        importer = io.get_method(config["root"])
+        rainrate_sequence, _, metadata = io.read_timeseries(
+            fns, importer, **importer.kwargs if hasattr(importer, "kwargs") else {}
+        )
+
+        return rainrate_sequence, metadata
+
+    except Exception as e:
+        return generate_synthetic_data()
