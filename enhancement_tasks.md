@@ -42,11 +42,11 @@ def load_dataset(dataset_name="swiss"):
         "danish": {"root": "danish", "date": "201606010000"},
         "german": {"root": "german", "date": "201608120000"},
     }
-    
+
     config = datasets_config[dataset_name]
     root_path = pysteps.datasets.download_pysteps_data()
     fns = pysteps.datasets.create_file_list(
-        root_path, config["root"], config["date"], 
+        root_path, config["root"], config["date"],
         timestep=5
     )
     importer = io.get_method(config["root"])
@@ -77,7 +77,7 @@ def classify_event_type(rainrate_sequence, metadata):
     """Classify precipitation event type"""
     max_intensity = np.max(rainrate_sequence)
     spatial_extent = np.mean(rainrate_sequence > 1.0)
-    
+
     if max_intensity > 20 and spatial_extent < 0.1:
         return "convective"
     elif max_intensity < 10 and spatial_extent > 0.3:
@@ -137,24 +137,24 @@ class StandardPINN(nn.Module):
         for i in range(len(layers) - 1):
             self.layers.append(nn.Linear(layers[i], layers[i+1]))
             nn.init.xavier_uniform_(self.layers[i].weight)
-    
+
     def compute_pde_residual(self, R, x, y, t):
         """Compute PDE residual for advection-diffusion"""
         R.grad.requires_grad_(True)
-        
+
         # First derivatives
         dR_dt = torch.autograd.grad(R, t, grad_outputs=torch.ones_like(R))[0]
         dR_dx = torch.autograd.grad(R, x, grad_outputs=torch.ones_like(R))[0]
         dR_dy = torch.autograd.grad(R, y, grad_outputs=torch.ones_like(R))[0]
-        
+
         # Second derivatives
         d2R_dx2 = torch.autograd.grad(dR_dx, x, grad_outputs=torch.ones_like(R))[0]
         d2R_dy2 = torch.autograd.grad(dR_dy, y, grad_outputs=torch.ones_like(R))[0]
-        
+
         # PDE: dR/dt + u*dR/dx + v*dR/dy = D*(d2R/dx2 + d2R/dy2)
         u, v, D = 1.0, 1.0, 0.1
         residual = dR_dt + u*dR_dx + v*dR_dy - D*(d2R_dx2 + d2R_dy2)
-        
+
         return torch.mean(residual**2)
 ```
 
@@ -184,7 +184,7 @@ class ConvPINN(nn.Module):
                 nn.Conv2D(channels[i], channels[i+1], kernel_size=3, padding=1)
             )
         self.physics_layer = PhysicsConstraint()
-    
+
     def forward(self, R_field, metadata):
         x = R_field.unsqueeze(0).unsqueeze(0)  # Add batch/channel dims
         for conv in self.conv_layers:
@@ -263,7 +263,7 @@ class ConvPINN(nn.Module):
 
 ---
 
-### 3.3 Simple Persistence
+### 3.3 Simple Persistence [COMPLETED]
 
 **What to do:**
 - Predict future = last observed frame
@@ -295,7 +295,7 @@ from optuna import create_study
 
 def optimize_pinn_hyperparams(rainrate_sequence, metadata):
     """Hyperparameter optimization for PINN"""
-    
+
     def objective(trial):
         # Sample hyperparameters
         lr = trial.log_uniform("lr", 1e-5, 1e-2)
@@ -303,26 +303,26 @@ def optimize_pinn_hyperparams(rainrate_sequence, metadata):
         num_layers = trial.int("num_layers", 3, 8)
         physics_weight = trial.log_uniform("physics_weight", 0.01, 1.0)
         weight_decay = trial.log_uniform("weight_decay", 1e-6, 1e-3)
-        
+
         # Train model
         trainer = LINDAPINNTrainer()
         trainer.model = LINDAPINNModel(layers=[4] + [hidden_size]*num_layers + [1])
         trainer.optimizer = torch.optim.Adam(
-            trainer.model.parameters(), 
-            lr=lr, 
+            trainer.model.parameters(),
+            lr=lr,
             weight_decay=weight_decay
         )
-        
+
         losses, _ = trainer.train_on_radar_sequence(
             rainrate_sequence, metadata, epochs=20, verbose=False
         )
-        
+
         # Return validation loss
         return np.mean(losses[-5:])  # Average of last 5 epochs
-    
+
     study = create_study(direction="minimize")
     study.optimize(objective, n_trials=50)
-    
+
     return study.best_params
 ```
 
@@ -369,20 +369,20 @@ def optimize_pinn_hyperparams(rainrate_sequence, metadata):
 ```python
 def run_hyperparameter_search(use_pinn=True, n_trials=50):
     """Run hyperparameter optimization with UI"""
-    
+
     if use_synthetic_data:
         rainrate_sequence, metadata = generate_synthetic_data()
     else:
         rainrate_sequence, metadata = load_swiss_radar_data()
-    
+
     if use_pinn:
         best_params = optimize_pinn_hyperparams(rainrate_sequence, metadata)
     else:
         best_params = optimize_linda_hyperparams(rainrate_sequence, metadata)
-    
+
     # Create visualization
     fig = plot_optuna_results(study)
-    
+
     return best_params, fig
 ```
 
@@ -416,9 +416,9 @@ def compute_crps(predictions, ground_truth):
             n = pred_sorted.shape[0]
             ranks = np.arange(1, n+1)
             gt = ground_truth[t]
-            
+
             crps_t = np.mean(
-                (2 * ranks - n - 1) * pred_sorted - 
+                (2 * ranks - n - 1) * pred_sorted -
                 n * np.abs(pred_sorted - gt)
             )
             crps += crps_t
@@ -449,7 +449,7 @@ def compute_crps(predictions, ground_truth):
 
 ## 6. Integration Guide
 
-### 6.1 Code Organization
+### 6.1 Code Organization [COMPLETED]
 
 **Recommended structure:**
 
