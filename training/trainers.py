@@ -14,10 +14,11 @@ from models.linda_pinn import LINDAPINNModel, device
 
 
 class LINDAPINNTrainer:
-    def __init__(self, spatial_domain=(-100, 100), temporal_domain=(0, 6)):
+    def __init__(self, spatial_domain=(-100, 100), temporal_domain=(0, 6), physics_weight=1.0):
         self.model = LINDAPINNModel()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001, weight_decay=1e-5)
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=100)
+        self.physics_weight = physics_weight
 
         self.x_min, self.x_max = spatial_domain
         self.t_min, self.t_max = temporal_domain
@@ -179,13 +180,14 @@ class LINDAPINNTrainer:
         )
 
         # Combine losses with proper weighting
+        pw = self.physics_weight
         total_loss = (
             data_loss
-            + 0.1 * dispersal_conservation
-            + 0.05 * growth_penalty
-            + 0.05 * advection_diff
-            + 0.01 * smoothness_loss
-            + 0.01 * param_reg
+            + pw * 0.1 * dispersal_conservation
+            + pw * 0.05 * growth_penalty
+            + pw * 0.05 * advection_diff
+            + pw * 0.01 * smoothness_loss
+            + pw * 0.01 * param_reg
         )
 
         return total_loss, {
