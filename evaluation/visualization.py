@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import optuna
 
 
 def create_prediction_visualization(linda_results, pinn_results, max_frames=6):
@@ -100,6 +101,54 @@ def create_loss_plot(pinn_results):
         ax2.set_title("Physics-Informed Loss")
         ax2.grid(True, alpha=0.3)
         ax2.legend()
+
+    plt.tight_layout()
+    return fig
+
+
+def create_hpo_plots(study):
+    """Create optimization history and parameter importance plots for an Optuna study."""
+    completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+    if not completed:
+        return None
+
+    param_names = ["lr", "hidden_size", "num_layers", "physics_weight", "weight_decay"]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Optimization history
+    ax = axes[0]
+    values = [t.value for t in completed]
+    trial_nums = [t.number for t in completed]
+    best_so_far = np.minimum.accumulate(values)
+    ax.scatter(trial_nums, values, alpha=0.5, s=20, label="Trial loss")
+    ax.plot(trial_nums, best_so_far, color="red", linewidth=2, label="Best so far")
+    ax.set_xlabel("Trial number")
+    ax.set_ylabel("Validation loss")
+    ax.set_title("Optimization History")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    # Parameter importance (correlation of each param with loss)
+    ax = axes[1]
+    importances = {}
+    for name in param_names:
+        param_vals = [t.params.get(name) for t in completed if name in t.params]
+        losses = [t.value for t in completed if name in t.params]
+        if len(param_vals) > 2 and len(set(param_vals)) > 1:
+            log_pv = np.log(np.array(param_vals, dtype=float) + 1e-12)
+            corr = float(np.abs(np.corrcoef(log_pv, losses)[0, 1]))
+            importances[name] = corr if np.isfinite(corr) else 0.0
+        else:
+            importances[name] = 0.0
+
+    total = sum(importances.values()) or 1.0
+    importances = {k: v / total for k, v in importances.items()}
+    sorted_params = sorted(importances, key=importances.get, reverse=True)
+    bars = ax.barh(sorted_params, [importances[p] for p in sorted_params], color="steelblue")
+    ax.set_xlabel("Relative importance (|correlation| with loss)")
+    ax.set_title("Parameter Importance")
+    ax.grid(True, alpha=0.3, axis="x")
 
     plt.tight_layout()
     return fig
